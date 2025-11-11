@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback } from 'react';
 import type { TreeNode, NetworkData, Paper, CollectedPaper, NetworkNode } from './types';
 
@@ -124,7 +125,10 @@ const App: React.FC = () => {
 
     const handleNodeCheck = useCallback((keyword: string, isChecked: boolean) => {
         setSelectedForNetwork(prev => {
-            const newSet = new Set(prev);
+            // FIX: Explicitly type the new Set to maintain type safety. This prevents
+            // `selectedForNetwork` from being inferred as `Set<unknown>` which caused
+            // downstream errors in `handleUpdateNetwork`.
+            const newSet = new Set<string>(prev);
             if (isChecked) {
                 newSet.add(keyword);
             } else {

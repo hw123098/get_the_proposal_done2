@@ -180,76 +180,72 @@ Only include connections between the provided keywords.`,
 
 
 export const findLiterature = async (keyword: string): Promise<Paper[]> => {
+    const METASO_API_ENDPOINT = 'https://metaso.cn/api/v1/search'; 
+    const apiKey = process.env.METASO_API_KEY;
+
+    if (!apiKey) {
+        throw new Error("Metaso API key is not configured. Please set METASO_API_KEY in your Vercel project settings.");
+    }
+
     try {
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-pro',
-            contents: `As an expert academic librarian, your task is to find real, verifiable academic papers for the user's research topic.
-
-Research Topic: "${keyword}"
-
-**Instructions:**
-1.  **Find & Verify:** Use your search tool to find up to 8 relevant academic papers. For each paper, you must verify its existence.
-2.  **Prioritize Sources:** You **must** prioritize results from reputable academic search engines like Google Scholar, Baidu Scholar, arXiv, PubMed, or official university/publisher websites. The URL must lead directly to the paper's landing page where the abstract or full text can be accessed.
-3.  **Chinese Topics:** If the topic is in Chinese, results from "Baidu Scholar" (xueshu.baidu.com) are highly preferred.
-4.  **Fallback URL:** If a direct link to a paper cannot be found, provide a search link to that paper on Google Scholar or Baidu Scholar.
-5.  **Summarize:** For each paper, write a brief, one-to-two sentence summary of its key findings **in your own words**. Do not copy the abstract.
-6.  **Format:** Return the verified information as a single JSON object. Do not include any other text or markdown formatting. The JSON should be clean and parseable.
-
-**JSON Output Format:**
-The JSON object must have a key "papers", which is an array of paper objects. Each paper object must contain:
-- "title": The full title of the paper.
-- "authors": An array of author names.
-- "year": The publication year (number).
-- "abstract": Your brief summary of the paper's key findings.
-- "citations": The citation count (number, if available).
-- "url": The direct, verifiable URL to the paper's landing page.
-
-**Important:**
-- Prioritize accuracy. It is better to return fewer, fully verified papers than a list with unverified entries.
-- Do not invent papers or URLs. If you cannot find and verify a paper, do not include it.`,
-            config: {
-                tools: [{googleSearch: {}}],
+        const response = await fetch(METASO_API_ENDPOINT, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'Authorization': `Bearer ${apiKey}`,
             },
+            body: JSON.stringify({
+                q: keyword,
+                scope: "webpage",
+                size: "10",
+                includeSummary: true,
+                includeRawContent: false,
+                conciseSnippet: false,
+            }),
         });
 
-        let rawText = response.text;
-        
-        if (!rawText) {
-            console.error("Model returned no text response for keyword:", keyword);
-            const finishReason = response.candidates?.[0]?.finishReason;
-            const safetyRatings = response.candidates?.[0]?.safetyRatings;
-            console.error("Finish Reason:", finishReason);
-            console.error("Safety Ratings:", JSON.stringify(safetyRatings, null, 2));
-            throw new Error("Failed to find literature: The model returned an empty response.");
-        }
-        
-        const jsonMatch = rawText.match(/```json([\s\S]*)```|({[\s\S]*})/);
-        if (!jsonMatch) {
-            console.error("Raw response from model:", rawText);
-            throw new Error("Failed to parse JSON from model response. No JSON object found.");
-        }
-        rawText = jsonMatch[1] || jsonMatch[2];
-
-        const data = JSON.parse(rawText);
-        
-        if (!data.papers || !Array.isArray(data.papers)) {
-            return [];
+        if (!response.ok) {
+            const errorBody = await response.text();
+            console.error("Metaso API Error:", errorBody);
+            throw new Error(`Metaso API request failed with status ${response.status}.`);
         }
 
-        // The model now provides the URL directly. We just need to validate the structure.
-        const papers: Paper[] = data.papers.filter((p: any): p is Paper => 
-            p && typeof p.title === 'string' && typeof p.url === 'string'
-        );
+        const data = await response.json();
+        
+        // Based on the user's screenshot, the results are in the 'webpages' array.
+        const results = data.webpages || []; 
+
+        if (!Array.isArray(results)) {
+             console.warn("Metaso API response did not contain a 'webpages' array.", data);
+             return [];
+        }
+
+        // Map the API response to the 'Paper' type used in this application.
+        const papers: Paper[] = results.map((p: any): Paper => ({
+            title: p.title || 'No Title Provided',
+            // Web search results don't typically provide structured author data.
+            authors: [],
+            // Web search results don't provide a publication year.
+            year: 0,
+            // The 'snippet' field from the API response corresponds to our 'abstract'.
+            abstract: p.snippet || 'No abstract available.',
+            // The 'link' field from the API response corresponds to our 'url'.
+            url: p.link || '#',
+            // Web search results don't provide citation counts.
+            citations: undefined,
+        }));
 
         return papers;
+
     } catch (error) {
-        console.error("Error finding literature:", error);
+        console.error("Error finding literature via Metaso:", error);
         if (error instanceof SyntaxError) {
-             throw new Error("Failed to find literature: The model returned an invalid format.");
+             throw new Error("Failed to find literature: The Metaso API returned an invalid format (not valid JSON).");
         }
-        if (error instanceof Error && error.message.startsWith("Failed to find literature:")) {
-            throw error;
+        if (error instanceof Error && error.message.includes("Metaso API")) {
+            throw error; // Re-throw our specific API errors
         }
-        throw new Error(`Failed to find literature for "${keyword}".`);
+        throw new Error(`An unexpected error occurred while fetching literature for "${keyword}" from Metaso.`);
     }
 };
