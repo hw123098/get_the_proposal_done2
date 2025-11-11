@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import type { TreeNode, Paper, CollectedPaper } from '../types';
 import { BookOpenIcon } from './icons/BookOpenIcon';
@@ -9,6 +10,7 @@ interface LiteraturePanelProps {
     node: TreeNode | null;
     collectedPapers: CollectedPaper[];
     onToggleCollect: (paper: Paper, sourceKeyword: string) => void;
+    onReadPaper: (url: string) => void;
 }
 
 const InitialState: React.FC = () => (
@@ -43,7 +45,7 @@ const TabButton: React.FC<{ active: boolean; onClick: () => void; count?: number
     </button>
 )
 
-export const LiteraturePanel: React.FC<LiteraturePanelProps> = ({ node, collectedPapers, onToggleCollect }) => {
+export const LiteraturePanel: React.FC<LiteraturePanelProps> = ({ node, collectedPapers, onToggleCollect, onReadPaper }) => {
     const [activeTab, setActiveTab] = useState<'results' | 'collection'>('results');
     const collectedPaperTitles = new Set(collectedPapers.map(item => item.paper.title));
 
@@ -80,6 +82,7 @@ export const LiteraturePanel: React.FC<LiteraturePanelProps> = ({ node, collecte
                                                     paper={paper} 
                                                     isCollected={collectedPaperTitles.has(paper.title)}
                                                     onToggleCollect={() => onToggleCollect(paper, node.keyword)}
+                                                    onReadPaper={onReadPaper}
                                                 />
                                             ))}
                                         </div>

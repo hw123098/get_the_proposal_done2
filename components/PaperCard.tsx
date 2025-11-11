@@ -1,14 +1,17 @@
+
 import React from 'react';
 import type { Paper } from '../types';
 import { BookmarkIcon } from './icons/BookmarkIcon';
+import { DocumentTextIcon } from './icons/DocumentTextIcon';
 
 interface PaperCardProps {
     paper: Paper;
     isCollected: boolean;
     onToggleCollect: () => void;
+    onReadPaper: (url: string) => void;
 }
 
-export const PaperCard: React.FC<PaperCardProps> = ({ paper, isCollected, onToggleCollect }) => (
+export const PaperCard: React.FC<PaperCardProps> = ({ paper, isCollected, onToggleCollect, onReadPaper }) => (
     <div className="bg-slate-800 p-4 rounded-lg border border-slate-700/80 transition-all hover:border-slate-600 hover:bg-slate-800/80 animate-fade-in relative">
         <button 
             onClick={onToggleCollect}
@@ -26,10 +29,18 @@ export const PaperCard: React.FC<PaperCardProps> = ({ paper, isCollected, onTogg
             )}
         </div>
         <p className="text-sm text-slate-300 mt-3 leading-relaxed">{paper.abstract}</p>
-        {paper.url && (
-            <a href={paper.url} target="_blank" rel="noopener noreferrer" className="text-cyan-400 text-sm mt-3 inline-block hover:underline">
-                View Source &rarr;
-            </a>
-        )}
+        <div className="flex items-center gap-4 mt-3">
+            {paper.url && (
+                <a href={paper.url} target="_blank" rel="noopener noreferrer" className="text-cyan-400 text-sm hover:underline">
+                    View Source &rarr;
+                </a>
+            )}
+             {paper.url && (
+                <button onClick={() => onReadPaper(paper.url)} className="flex items-center gap-1.5 text-cyan-400 text-sm hover:underline">
+                    <DocumentTextIcon className="w-4 h-4" />
+                    Read Full Text
+                </button>
+            )}
+        </div>
     </div>
 );

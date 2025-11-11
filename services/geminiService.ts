@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 import type { Paper, TreeNode, NetworkEdge } from '../types';
 
@@ -247,5 +248,55 @@ export const findLiterature = async (keyword: string): Promise<Paper[]> => {
             throw error; // Re-throw our specific API errors
         }
         throw new Error(`An unexpected error occurred while fetching literature for "${keyword}" from Metaso.`);
+    }
+};
+
+export const readWebpage = async (url: string): Promise<string> => {
+    const METASO_READER_API_ENDPOINT = 'https://metaso.cn/api/v1/reader';
+    const apiKey = process.env.METASO_API_KEY;
+
+    if (!apiKey) {
+        throw new Error("Metaso API key is not configured. Please set METASO_API_KEY in your Vercel project settings.");
+    }
+
+    try {
+        const response = await fetch(METASO_READER_API_ENDPOINT, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'Authorization': `Bearer ${apiKey}`,
+            },
+            body: JSON.stringify({ url }),
+        });
+
+        if (!response.ok) {
+            const errorBody = await response.text();
+            console.error("Metaso Reader API Error:", errorBody);
+            throw new Error(`Metaso Reader API request failed with status ${response.status}.`);
+        }
+        
+        const data = await response.json();
+        
+        // Based on API documentation, the content should be returned in a 'content' field.
+        // If the field name is different, it needs to be adjusted here.
+        if (typeof data.content === 'string') {
+            return data.content;
+        } else if (typeof data === 'string') { // Fallback if the API returns the string directly
+            return data;
+        }
+        
+        console.warn("Metaso Reader API response did not contain a 'content' string.", data);
+        throw new Error("Failed to parse article content from the API response.");
+
+    } catch (error) {
+        console.error("Error reading webpage via Metaso:", error);
+        if (error instanceof SyntaxError) {
+             throw new Error("Failed to read webpage: The Metaso API returned an invalid format (not valid JSON).");
+        }
+        if (error instanceof Error && error.message.includes("Metaso")) {
+            throw error;
+        }
+        throw new Error(`An unexpected error occurred while reading the article from "${url}".`);
     }
 };

@@ -5,6 +5,7 @@ import type { TreeNode, NetworkData, Paper, CollectedPaper, NetworkNode } from '
 import { Header } from './components/Header';
 import { KeywordInput } from './components/KeywordInput';
 import { ResearchExplorer } from './components/ResearchExplorer';
+import { ArticleModal } from './components/ArticleModal';
 
 import * as GeminiService from './services/geminiService';
 import { ITERATION_LIMIT } from './constants';
@@ -20,6 +21,12 @@ const App: React.FC = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [loadingMessage, setLoadingMessage] = useState('');
     const [error, setError] = useState('');
+
+    // State for the article reading modal
+    const [isArticleModalOpen, setIsArticleModalOpen] = useState(false);
+    const [articleContent, setArticleContent] = useState('');
+    const [isArticleLoading, setIsArticleLoading] = useState(false);
+    const [articleError, setArticleError] = useState('');
 
     const findAndModifyNode = (nodes: TreeNode[], nodeId: string, modification: (node: TreeNode) => void): TreeNode[] => {
         return nodes.map(node => {
@@ -193,6 +200,21 @@ const App: React.FC = () => {
         }
     }, [iterations, trees]);
 
+    const handleReadPaper = useCallback(async (url: string) => {
+        setIsArticleModalOpen(true);
+        setIsArticleLoading(true);
+        setArticleError('');
+        setArticleContent('');
+        try {
+            const content = await GeminiService.readWebpage(url);
+            setArticleContent(content);
+        } catch (err: any) {
+            setArticleError(err.message || "Failed to load article content.");
+        } finally {
+            setIsArticleLoading(false);
+        }
+    }, []);
+
     const handleExportJson = useCallback(() => {
         const data = {
             trees,
@@ -267,9 +289,17 @@ const App: React.FC = () => {
                         onUpdateNetwork={handleUpdateNetwork}
                         onToggleCollectPaper={handleToggleCollectPaper}
                         onRefreshTree={handleRefreshTree}
+                        onReadPaper={handleReadPaper}
                     />
                 )}
             </div>
+             <ArticleModal 
+                isOpen={isArticleModalOpen}
+                isLoading={isArticleLoading}
+                error={articleError}
+                content={articleContent}
+                onClose={() => setIsArticleModalOpen(false)}
+            />
         </main>
     );
 };
